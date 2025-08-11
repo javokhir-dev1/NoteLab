@@ -12,7 +12,7 @@ router.get("/", async (req, res) => {
         let data = await Users.find()
         res.send({ data, success: true })
     } catch (err) {
-        res.status(500).send({ error: err.message, success: false })
+        res.status(500).send({ error: "Server error", success: false })
     }
 })
 
@@ -28,47 +28,46 @@ const transporter = nodemailer.createTransport({
 });
 
 totp.options = {
-    step: 300,
+    step: 600,
     digits: 6
 };
 
 router.post("/otp", async (req, res) => {
     const { email } = req.body;
     if (!email) {
-        return res.status(400).json({ error: "Email talab qilinadi", success: false });
+        return res.status(400).json({ error: "Email is required", success: false });
     }
-
     try {
         const code = totp.generate(process.env.OTP_SECRET);
 
         await transporter.sendMail({
             from: `"NoteLab" <${process.env.EMAIL_USER}>`,
             to: email,
-            subject: "Sizning OTP kodingiz",
-            html: `<h2>OTP kod: <b>${code}</b></h2><p>5 daqiqa ichida amal qiladi.</p>`
+            subject: "Your OTP code",
+            html: `<h2>OTP kod: <b>${code}</b></h2><p>Valid within 10 minutes.</p>`
         });
 
         console.log(`OTP ${email} ga yuborildi: ${code}`);
 
-        res.json({ message: "OTP yuborildi", expiresIn: "5 daqiqa", success: true });
+        res.json({ message: "OTP sent", expiresIn: "5 minutes", success: true });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ error: "OTP yuborishda xatolik", success: false });
+        res.status(500).json({ error: "Error sending OTP", success: false });
     }
 });
 
 router.post("/verify-otp", (req, res) => {
     const { code } = req.body;
     if (!code) {
-        return res.status(400).json({ error: "Kod talab qilinadi", success: false });
+        return res.status(400).json({ error: "Code required", success: false });
     }
 
     const isValid = totp.check(code, process.env.OTP_SECRET);
 
     if (isValid) {
-        res.json({ message: "✅ Kod to'g'ri", success: true });
+        res.json({ message: "The code is correct.", success: true });
     } else {
-        res.status(400).json({ error: "❌ Kod noto'g'ri yoki muddati o'tgan", success: false });
+        res.status(400).json({ error: "The code is invalid or expired", success: false });
     }
 });
 
@@ -82,7 +81,7 @@ router.post("/login", async (req, res) => {
         const { email, username, password } = req.body;
 
         if ((!email && !username) || !password) {
-            return res.status(400).json({ message: "Email yoki username va parol kiriting", success: false });
+            return res.status(400).json({ error: "Enter your email or username and password", success: false });
         }
 
         const user = await Users.findOne({
@@ -90,12 +89,12 @@ router.post("/login", async (req, res) => {
         });
 
         if (!user) {
-            return res.status(404).json({ message: "Foydalanuvchi topilmadi", success: false });
+            return res.status(404).json({ error: "User not found", success: false });
         }
 
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ message: "Parol noto'g'ri", success: false });
+            return res.status(401).json({ error: "Password is incorrect", success: false });
         }
 
         const token = jwt.sign(
@@ -105,13 +104,13 @@ router.post("/login", async (req, res) => {
         );
 
         res.json({
-            message: "Tizimga muvaffaqiyatli kirdingiz",
+            message: "You have successfully logged in",
             token,
             success: true
         });
 
     } catch (err) {
-        res.status(500).json({ message: "Server xatosi", error: err.message, success: false });
+        res.status(500).json({ error: "Server error", error: err.message, success: false });
     }
 });
 
@@ -121,12 +120,12 @@ router.delete("/:id", async (req, res) => {
         let id = req.params.id
         let data = await Users.findByIdAndDelete(id)
         if (!data) {
-            return res.status(400).send({ message: "User topilmadi", success: false })
+            return res.status(400).send({ error: "User not found", success: false })
         }
 
         res.send({ deleted: data, success: true })
     } catch (err) {
-        res.status(500).json({ message: "Server xatosi", error: err.message, success: false })
+        res.status(500).json({ message: "Server error", success: false })
     }
 })
 
