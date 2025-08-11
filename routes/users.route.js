@@ -4,6 +4,8 @@ const router = express.Router()
 
 const { Users, userValidationSchema } = require("../models/users.model")
 
+require("dotenv").config();
+
 // GET USERS
 router.get("/", async (req, res) => {
     try {
@@ -14,32 +16,63 @@ router.get("/", async (req, res) => {
     }
 })
 
-// register
-router.post("/register", async (req, res) => {
-    try {
-        const { error } = userValidationSchema.validate(req.body)
+const nodemailer = require("nodemailer");
+const { totp } = require("otplib")
 
-        if (error) {
-            return res.status(400).json({ message: error.details[0].message, success: false });
-        }
-
-        const existingUser = await Users.findOne({
-            $or: [{ email: req.body.email }, { username: req.body.username }]
-        });
-        if (existingUser) {
-            return res.status(400).json({ message: "Email yoki username allaqachon mavjud", success: false });
-        }
-
-        let hash = await bcrypt.hash(req.body.password, 10)
-
-        const user = new Users({ email: req.body.email, username: req.body.username, password: hash });
-        await user.save();
-
-        res.status(201).json({ message: "Foydalanuvchi muvaffaqiyatli ro'yxatdan o'tdi", success: true });
-    } catch (err) {
-        res.status(500).json({ message: "Server xatosi", error: err.message });
+const transporter = nodemailer.createTransport({
+    service: "gmail",
+    auth: {
+        user: process.env.EMAIL_USER,
+        pass: process.env.EMAIL_PASS
     }
-})
+});
+
+totp.options = {
+    step: 300,
+    digits: 6
+};
+
+router.post("/otp", async (req, res) => {
+    const { email } = req.body;
+    if (!email) {
+        return res.status(400).json({ error: "Email talab qilinadi", success: false });
+    }
+
+    try {
+        const code = totp.generate(process.env.OTP_SECRET);
+
+        await transporter.sendMail({
+            from: `"NoteLab" <${process.env.EMAIL_USER}>`,
+            to: email,
+            subject: "Sizning OTP kodingiz",
+            html: `<h2>OTP kod: <b>${code}</b></h2><p>5 daqiqa ichida amal qiladi.</p>`
+        });
+
+        console.log(`OTP ${email} ga yuborildi: ${code}`);
+
+        res.json({ message: "OTP yuborildi", expiresIn: "5 daqiqa", success: true });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ error: "OTP yuborishda xatolik", success: false });
+    }
+});
+
+router.post("/verify-otp", (req, res) => {
+    const { code } = req.body;
+    if (!code) {
+        return res.status(400).json({ error: "Kod talab qilinadi", success: false });
+    }
+
+    const isValid = totp.check(code, process.env.OTP_SECRET);
+
+    if (isValid) {
+        res.json({ message: "✅ Kod to'g'ri", success: true });
+    } else {
+        res.status(400).json({ error: "❌ Kod noto'g'ri yoki muddati o'tgan", success: false });
+    }
+});
+
+
 
 const jwt = require("jsonwebtoken");
 
@@ -92,7 +125,7 @@ router.delete("/:id", async (req, res) => {
         }
 
         res.send({ deleted: data, success: true })
-    } catch(err) {
+    } catch (err) {
         res.status(500).json({ message: "Server xatosi", error: err.message, success: false })
     }
 })

@@ -17,5 +17,5 @@ app.use(cors())
 app.use("/users", users)
 
 app.listen(3000, () => {
-    console.log("server stareted")
+    console.log("server started")
 })
