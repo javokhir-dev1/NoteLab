@@ -71,34 +71,43 @@ router.post("/verify-otp", (req, res) => {
     }
 });
 
-
-
 const jwt = require("jsonwebtoken");
 
 // LOGIN
 router.post("/login", async (req, res) => {
     try {
-        const { email, username, password } = req.body;
+        const { email, password } = req.body;
 
-        if ((!email && !username) || !password) {
-            return res.status(400).json({ error: "Enter your email or username and password", success: false });
+        // Email va password kiritilganini tekshiramiz
+        if (!email || !password) {
+            return res.status(400).json({
+                error: "Enter your email and password",
+                success: false
+            });
         }
 
-        const user = await Users.findOne({
-            $or: [{ email }, { username }]
-        });
+        // Email bo'yicha foydalanuvchini topamiz
+        const user = await Users.findOne({ email });
 
         if (!user) {
-            return res.status(404).json({ error: "User not found", success: false });
+            return res.status(404).json({
+                error: "User not found",
+                success: false
+            });
         }
 
+        // Parolni tekshiramiz
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
-            return res.status(401).json({ error: "Password is incorrect", success: false });
+            return res.status(401).json({
+                error: "Password is incorrect",
+                success: false
+            });
         }
 
+        // Token yaratamiz
         const token = jwt.sign(
-            { id: user._id, email: user.email, username: user.username },
+            { id: user._id, email: user.email },
             process.env.JWT_SECRET,
             { expiresIn: "1h" }
         );
@@ -110,7 +119,11 @@ router.post("/login", async (req, res) => {
         });
 
     } catch (err) {
-        res.status(500).json({ error: "Server error", error: err.message, success: false });
+        res.status(500).json({
+            error: "Server error",
+            details: err.message,
+            success: false
+        });
     }
 });
 
