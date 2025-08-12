@@ -143,6 +143,7 @@ router.post("/login", async (req, res) => {
         if (!user) {
             return res.status(404).json({
                 error: "User not found",
+                isWrongEmail: true,
                 success: false
             });
         }
@@ -151,6 +152,7 @@ router.post("/login", async (req, res) => {
         if (!isMatch) {
             return res.status(401).json({
                 error: "Password is incorrect",
+                isWrongPassword : true,
                 success: false
             });
         }
