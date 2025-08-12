@@ -11,21 +11,19 @@ const userSchema = new mongoose.Schema({
     username: {
         type: String,
         required: [true, "Username kiritish majburiy"],
-        unique: true,
         minlength: [3, "Username kamida 3 ta belgidan iborat bo'lishi kerak"],
         maxlength: [20, "Username 20 ta belgidan oshmasligi kerak"],
         match: [/^[a-zA-Z0-9_]+$/, "Username faqat harf, raqam va pastki chiziq (_) bo'lishi mumkin"]
     },
-
     password: {
         type: String,
         required: true,
         validate: {
             validator: function (value) {
-                return /^(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/.test(value);
+                return /^(?=.*[A-Z])(?=.*\d).{6,}$/.test(value);
             },
             message:
-                "Parol kamida 8 ta belgi, bitta katta harf, bitta raqam va bitta maxsus belgi bo'lishi kerak"
+                "Parol kamida 6 ta belgi, bitta katta harf va bitta raqam bo'lishi kerak"
         }
     }
 })
@@ -55,11 +53,11 @@ const userValidationSchema = Joi.object({
     }),
 
   password: Joi.string()
-    .pattern(/^(?=.*[A-Z])(?=.*\d)(?=.*[\W_]).{8,}$/)
+    .pattern(/^(?=.*[A-Z])(?=.*\d).{6,}$/)
     .required()
     .messages({
       "string.pattern.base":
-        "Parol kamida 8 ta belgi, bitta katta harf, bitta raqam va bitta maxsus belgi bo'lishi kerak",
+        "Parol kamida 6 ta belgi, bitta katta harf va bitta raqam bo'lishi kerak",
       "any.required": "Parol kiritish majburiy"
     })
 });

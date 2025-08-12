@@ -1,10 +1,20 @@
 const express = require("express")
 const bcrypt = require("bcrypt")
 const router = express.Router()
+const auth = require("../middleware/auth")
 
 const { Users, userValidationSchema } = require("../models/users.model")
 
 require("dotenv").config();
+
+router.get("/profile", auth, async (req, res) => {
+    try {
+        let user = await Users.findOne({ _id: req.user.id })
+        res.json({ message: "Welcome!", user: { email: user.email, username: user.username }, success: true });
+    } catch (err) {
+    res.status(500).send(err.message)
+}
+});
 
 // GET USERS
 router.get("/", async (req, res) => {
@@ -34,10 +44,20 @@ totp.options = {
 
 router.post("/otp", async (req, res) => {
     const { email } = req.body;
+
     if (!email) {
         return res.status(400).json({ error: "Email is required", success: false });
     }
+
     try {
+        const existingUser = await Users.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({
+                error: "This email is already registered.",
+                success: false
+            });
+        }
+
         const code = totp.generate(process.env.OTP_SECRET);
 
         await transporter.sendMail({
@@ -49,12 +69,14 @@ router.post("/otp", async (req, res) => {
 
         console.log(`OTP ${email} ga yuborildi: ${code}`);
 
-        res.json({ message: "OTP sent", expiresIn: "5 minutes", success: true });
+        res.json({ message: "OTP sent", expiresIn: "10 minutes", success: true });
+
     } catch (error) {
         console.error(error);
         res.status(500).json({ error: "Error sending OTP", success: false });
     }
 });
+
 
 router.post("/verify-otp", (req, res) => {
     const { code } = req.body;
@@ -71,6 +93,37 @@ router.post("/verify-otp", (req, res) => {
     }
 });
 
+router.post("/signup", async (req, res) => {
+    try {
+        const { email, username, password } = req.body;
+
+        const { error } = userValidationSchema.validate({ email, username, password });
+        if (error) {
+            return res.status(400).json({ success: false, error: error.details[0].message });
+        }
+
+        const existingUser = await Users.findOne({ email });
+        if (existingUser) {
+            return res.status(400).json({ success: false, error: "This email is already registered." });
+        }
+
+        const hashedPassword = await bcrypt.hash(password, 10);
+
+        const newUser = new Users({
+            email,
+            username,
+            password: hashedPassword
+        });
+        await newUser.save();
+
+        res.status(201).json({ success: true, message: "Registration successful" });
+
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ success: false, error: "Server error" });
+    }
+});
+
 const jwt = require("jsonwebtoken");
 
 // LOGIN
@@ -78,7 +131,6 @@ router.post("/login", async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Email va password kiritilganini tekshiramiz
         if (!email || !password) {
             return res.status(400).json({
                 error: "Enter your email and password",
@@ -86,7 +138,6 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        // Email bo'yicha foydalanuvchini topamiz
         const user = await Users.findOne({ email });
 
         if (!user) {
@@ -96,7 +147,6 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        // Parolni tekshiramiz
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(401).json({
@@ -105,11 +155,10 @@ router.post("/login", async (req, res) => {
             });
         }
 
-        // Token yaratamiz
         const token = jwt.sign(
-            { id: user._id, email: user.email },
+            { id: user._id },
             process.env.JWT_SECRET,
-            { expiresIn: "1h" }
+            { expiresIn: "10d" }
         );
 
         res.json({
