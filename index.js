@@ -3,6 +3,7 @@ const mongoose = require("mongoose")
 const cors = require("cors")
 const users = require("./routes/users.route")
 const folders = require("./routes/folders.route")
+const notes = require("./routes/notes.route")
 
 require("dotenv").config()
 
@@ -17,6 +18,7 @@ app.use(cors())
 
 app.use("/users", users)
 app.use("/folders", folders)
+app.use("/notes", notes)
 
 app.listen(3000, () => {
     console.log("server started")
