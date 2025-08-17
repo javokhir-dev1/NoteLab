@@ -51,9 +51,23 @@ router.get("/show-folder/:id", async (req, res) => {
     }
 })
 
+router.patch("/change-name/:id", async (req, res) => {
+    try {
+        const id = req.params.id
+        const folder = await Folders.findByIdAndUpdate(id, { noteName: req.body.noteName }, { new: true })
+        if (!folder) {
+            return res.status(400).send({ error: "invalid id", success: false })
+        }
+        res.send({ data: folder, success: true })
+    } catch (err) {
+        res.status(500).send({ error: err.message, success: false })
+    }
+})
+
 router.delete("/delete-folder/:id", async (req, res) => {
     try {
         const data = await Folders.findByIdAndDelete(req.params.id)
+        await Notes.deleteMany({ folderId: req.params.id })
         res.send({ data, success: true })
     } catch (err) {
         res.status(500).send({ error: err.message, success: false })
